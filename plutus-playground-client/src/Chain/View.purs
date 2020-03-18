@@ -12,8 +12,9 @@ import Data.Foldable (foldMap, foldr)
 import Data.FoldableWithIndex (foldMapWithIndex, foldrWithIndex)
 import Data.FunctorWithIndex (mapWithIndex)
 import Data.Int (toNumber)
-import Data.Json.JsonTuple (JsonTuple(..), _JsonTuple)
-import Data.Lens (Traversal', _1, _Just, filtered, has, preview, toListOf, traversed, view)
+import Data.Json.JsonMap (_JsonMap)
+import Data.Json.JsonTuple (JsonTuple(..))
+import Data.Lens (Traversal', _Just, filtered, has, preview, to, view)
 import Data.Lens.Index (ix)
 import Data.Map (Map)
 import Data.Map as Map
@@ -128,7 +129,7 @@ transactionDetailView walletKeys annotatedBlockchain annotatedTx =
                     , div_
                         [ strong_ [ text "Signatures:" ]
                         , nbsp
-                        , case Array.fromFoldable (toListOf (_tx <<< _txSignatures <<< AssocMap._Map <<< traversed <<< _JsonTuple <<< _1) annotatedTx) of
+                        , case Array.fromFoldable (view (_tx <<< _txSignatures <<< _JsonMap <<< to Map.keys) annotatedTx) of
                             [] -> text "None"
                             pubKeys -> div_ (showPubKey <$> pubKeys)
                         ]
@@ -144,7 +145,7 @@ transactionDetailView walletKeys annotatedBlockchain annotatedTx =
     , balancesTable
         (view _sequenceId annotatedTx)
         walletKeys
-        (AssocMap.toDataMap (view _balances annotatedTx))
+        (view (_balances <<< _JsonMap) annotatedTx)
     ]
 
 entryCardHeader :: forall i p. SequenceId -> HTML p i

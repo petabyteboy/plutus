@@ -151,11 +151,11 @@ in rec {
 
       in
       pkgs.callPackage ./nix/purescript.nix rec {
-        inherit easyPS;
         inherit (sources) nodejs-headers;
+        inherit easyPS;
         psSrc = generated-purescript;
         src = ./plutus-playground-client;
-        webCommonPath = ./web-common;
+        webCommon = pkgs.copyPathToStore ./web-common;
         packageJSON = ./plutus-playground-client/package.json;
         yarnLock = ./plutus-playground-client/yarn.lock;
         yarnNix = ./plutus-playground-client/yarn.nix;
@@ -196,7 +196,7 @@ in rec {
         inherit easyPS;
         psSrc = generated-purescript;
         src = ./marlowe-playground-client;
-        webCommonPath = ./web-common;
+        webCommon = pkgs.copyPathToStore ./web-common;
         packageJSON = ./marlowe-playground-client/package.json;
         yarnLock = ./marlowe-playground-client/yarn.lock;
         yarnNix = ./marlowe-playground-client/yarn.nix;
@@ -205,6 +205,38 @@ in rec {
         name = (pkgs.lib.importJSON packageJSON).name;
       };
   });
+
+  plutus-scb = rec {
+    server-invoker= set-git-rev haskell.packages.plutus-scb.components.exes.plutus-scb;
+
+    client = let
+      generated-purescript = pkgs.runCommand "plutus-scb-purescript" {} ''
+        mkdir $out
+        ln -s ${haskell.packages.plutus-scb.src}/plutus-scb.yaml.sample plutus-scb.yaml
+        ${server-invoker}/bin/plutus-scb psgenerator $out
+      '';
+      in
+      pkgs.callPackage ./nix/purescript.nix rec {
+        inherit (sources) nodejs-headers;
+        inherit easyPS;
+        psSrc = generated-purescript;
+        src = ./plutus-scb-client;
+        webCommon = builtins.filterSource (path: type:
+          ! (builtins.elem (baseNameOf path) [
+              "Analytics.purs"
+              "Gists.purs"
+              "Editor.purs"
+            ])
+        ) ./web-common;
+        packageJSON = ./plutus-scb-client/package.json;
+        yarnLock = ./plutus-scb-client/yarn.lock;
+        yarnNix = ./plutus-scb-client/yarn.nix;
+        packages = pkgs.callPackage ./plutus-scb-client/packages.nix {};
+        spagoPackages = pkgs.callPackage ./plutus-scb-client/spago-packages.nix {};
+        name = (pkgs.lib.importJSON packageJSON).name;
+        checkPhase = ''node -e 'require("./output/Test.Main").main()' '';
+      };
+  };
 
   docker = rec {
     defaultPlaygroundConfig = pkgs.writeTextFile {

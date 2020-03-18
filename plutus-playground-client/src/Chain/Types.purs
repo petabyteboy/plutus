@@ -3,18 +3,18 @@ module Chain.Types where
 import Prelude
 import Data.Generic.Rep (class Generic)
 import Data.Generic.Rep.Show (genericShow)
+import Data.Json.JsonMap (JsonMap)
 import Data.Lens (Fold', Iso', Lens', Traversal', filtered, iso, preview, traversed)
 import Data.Lens.Iso.Newtype (_Newtype)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Data.Symbol (SProxy(..))
-import Language.PlutusTx.AssocMap as AssocMap
 import Ledger.Address (Address(..))
 import Ledger.Crypto (PubKey, Signature)
 import Ledger.Interval (Interval)
 import Ledger.Slot (Slot)
-import Ledger.Tx (Tx, TxIn, TxOut(..), TxOutRef(..), TxOutType(..))
+import Ledger.Tx (Tx, TxIn, TxOut(..), TxOutRef(..))
 import Ledger.TxId (TxId)
 import Ledger.Value (Value)
 import Wallet.Rollup.Types (AnnotatedTx(..), BeneficialOwner(..), DereferencedInput, SequenceId)
@@ -72,7 +72,7 @@ _originalInput = _Newtype <<< prop (SProxy :: SProxy "originalInput")
 _txIdOf :: Lens' AnnotatedTx TxId
 _txIdOf = _Newtype <<< prop (SProxy :: SProxy "txId")
 
-_balances :: Lens' AnnotatedTx (AssocMap.Map BeneficialOwner Value)
+_balances :: Lens' AnnotatedTx (JsonMap BeneficialOwner Value)
 _balances = _Newtype <<< prop (SProxy :: SProxy "balances")
 
 _tx :: Lens' AnnotatedTx Tx
@@ -87,7 +87,7 @@ _txForge = _Newtype <<< prop (SProxy :: SProxy "txForge")
 _txValidRange :: Lens' Tx (Interval Slot)
 _txValidRange = _Newtype <<< prop (SProxy :: SProxy "txValidRange")
 
-_txSignatures :: Lens' Tx (AssocMap.Map PubKey Signature)
+_txSignatures :: Lens' Tx (JsonMap PubKey Signature)
 _txSignatures = _Newtype <<< prop (SProxy :: SProxy "txSignatures")
 
 _txInputs :: Lens' Tx (Array TxIn)

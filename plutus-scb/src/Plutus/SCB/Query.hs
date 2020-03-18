@@ -18,7 +18,8 @@ module Plutus.SCB.Query
     , eventCount
     , latestContractStatus
     , utxoAt
-    , utxoIndexProjection,blockCount
+    , utxoIndexProjection
+    , blockCount
     , pureProjection
     ) where
 

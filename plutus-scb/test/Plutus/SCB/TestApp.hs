@@ -173,10 +173,11 @@ valueAt = WalletServer.valueAt
 runScenario :: Eff TestAppEffects a -> IO ()
 runScenario action = do
     let testState = initialTestState
-    (result, finalState) <- runTestApp initialTestState $ do
-                Wallet.Emulator.Chain.processBlock
-                sync
-                void action
+    (result, finalState) <-
+        runTestApp initialTestState $ do
+            Wallet.Emulator.Chain.processBlock
+            sync
+            void action
     case result of
         Left err -> do
             runTestApp finalState $ do
@@ -202,63 +203,67 @@ runScenario action = do
                 traverse_ (logDebug . abbreviate 120 . tshow) chainIndexEvents
                 logDebug "--"
             error $ show err
-        Right _  -> pure ()
+        Right _ -> pure ()
 
 handleContractTest ::
-    (Member (Error SCBError) effs)
-    => Eff (ContractEffect ': effs)
-    ~> Eff effs
-handleContractTest = interpret $ \case
-    InvokeContract (InitContract "game") ->
-        either throwError pure $ do
-            value <- fromResumable $ initialResponse Contracts.Game.game
-            fromString $ JSON.eitherDecode (JSON.encode value)
-    InvokeContract (UpdateContract "game" payload) ->
-        either throwError pure $ do
-            request <- fromString $ JSON.parseEither JSON.parseJSON payload
-            value <- fromResumable $ runUpdate Contracts.Game.game request
-            fromString $ JSON.eitherDecode (JSON.encode value)
-    InvokeContract (InitContract contractPath) ->
-        throwError $ ContractNotFound contractPath
-    InvokeContract (UpdateContract contractPath _) ->
-        throwError $ ContractNotFound contractPath
+       (Member (Error SCBError) effs)
+    => Eff (ContractEffect ': effs) ~> Eff effs
+handleContractTest =
+    interpret $ \case
+        InvokeContract (InitContract "game") ->
+            either throwError pure $ do
+                value <- fromResumable $ initialResponse Contracts.Game.game
+                fromString $ JSON.eitherDecode (JSON.encode value)
+        InvokeContract (UpdateContract "game" payload) ->
+            either throwError pure $ do
+                request <- fromString $ JSON.parseEither JSON.parseJSON payload
+                value <- fromResumable $ runUpdate Contracts.Game.game request
+                fromString $ JSON.eitherDecode (JSON.encode value)
+        InvokeContract (InitContract contractPath) ->
+            throwError $ ContractNotFound contractPath
+        InvokeContract (UpdateContract contractPath _) ->
+            throwError $ ContractNotFound contractPath
 
-runTestApp :: TestState -> Eff TestAppEffects () -> IO (Either SCBError (), TestState)
+runTestApp ::
+       TestState -> Eff TestAppEffects () -> IO (Either SCBError (), TestState)
 runTestApp state =
-    runM
-    . runState state
-    . runError
-    . interpret (handleZoomedError _WalletError)
-    . interpret (writeIntoState chainEventLog)
-    . interpret (writeIntoState emulatorEventLog)
-    . interpret (writeIntoState (nodeState . NodeServer.eventHistory))
-    . interpret (writeIntoState (chainIndex . ChainIndex.indexEvents . iso toList Seq.fromList))
-    . interpret (handleZoomedWriter (below (walletClientEvent defaultWallet)))
-    . interpret (handleZoomedWriter (below (walletEvent defaultWallet)))
-    . runStderrLog
-    . interpret (handleZoomedWriter (below (walletEvent defaultWallet . Wallet.Emulator.Wallet._WalletMsg)))
-    . interpret (handleZoomedState eventStore)
-    . interpret (handleZoomedState (chainIndex . ChainIndex.indexState))
-    . interpret (handleZoomedState chainIndex)
-    . interpret (handleZoomedState nodeClientState)
-    . interpret (handleZoomedState signingProcess)
-    . interpret (handleZoomedState walletState)
-    . interpret (handleZoomedState nodeState)
-    . interpret (handleZoomedState (nodeState . NodeServer.chainState))
-    . interpret (handleZoomedState (nodeState . NodeServer.followerState))
-    . handleEventLogState
-    . handleChain
-    . handleSigningProcessControl
-    . handleSigningProcess
-    . handleNodeControl
-    . handleNodeClient
-    . handleChainIndexControl
-    . handleChainIndex
-    . handleContractTest
-    . handleUUIDEffect
-    . WalletServer.handleWallet
-    . handleNodeFollower
-    . runGenRandomTx
+    runM .
+    runState state .
+    runError .
+    interpret (handleZoomedError _WalletError) .
+    interpret (writeIntoState chainEventLog) .
+    interpret (writeIntoState emulatorEventLog) .
+    interpret (writeIntoState (nodeState . NodeServer.eventHistory)) .
+    interpret
+        (writeIntoState
+             (chainIndex . ChainIndex.indexEvents . iso toList Seq.fromList)) .
+    interpret (handleZoomedWriter (below (walletClientEvent defaultWallet))) .
+    interpret (handleZoomedWriter (below (walletEvent defaultWallet))) .
+    runStderrLog .
+    interpret
+        (handleZoomedWriter
+             (below
+                  (walletEvent defaultWallet . Wallet.Emulator.Wallet._WalletMsg))) .
+    interpret (handleZoomedState eventStore) .
+    interpret (handleZoomedState (chainIndex . ChainIndex.indexState)) .
+    interpret (handleZoomedState chainIndex) .
+    interpret (handleZoomedState nodeClientState) .
+    interpret (handleZoomedState signingProcess) .
+    interpret (handleZoomedState walletState) .
+    interpret (handleZoomedState nodeState) .
+    interpret (handleZoomedState (nodeState . NodeServer.chainState)) .
+    interpret (handleZoomedState (nodeState . NodeServer.followerState)) .
+    handleEventLogState .
+    handleChain .
+    handleSigningProcessControl .
+    handleSigningProcess .
+    handleNodeControl .
+    handleNodeClient .
+    handleChainIndexControl .
+    handleChainIndex .
+    handleContractTest .
+    handleUUIDEffect .
+    WalletServer.handleWallet . handleNodeFollower . runGenRandomTx
 
 sync :: Eff TestAppEffects ()
 sync = do

@@ -1,13 +1,15 @@
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE FlexibleContexts  #-}
-{-# LANGUAGE MonoLocalBinds    #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DataKinds           #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE MonoLocalBinds      #-}
+{-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 
 module Plutus.SCB.CoreSpec
     ( tests
     ) where
 
 import           Cardano.Node.Follower                         (NodeFollowerEffect)
+import           Control.Lens                                  (view, _1)
 import           Control.Monad                                 (void)
 import           Control.Monad.Freer                           (Eff, LastMember, Member, Members)
 import           Control.Monad.Freer.Error                     (Error)

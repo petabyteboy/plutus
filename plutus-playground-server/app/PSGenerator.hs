@@ -55,9 +55,9 @@ import           Language.PureScript.Bridge.CodeGenSwitches (ForeignOptions (For
                                                              unwrapSingleConstructors)
 import           Language.PureScript.Bridge.PSTypes         (psArray, psInt, psString)
 import           Language.PureScript.Bridge.TypeParameters  (A)
-import           Ledger                                     (Address, Datum, MonetaryPolicy, PubKey, PubKeyHash,
-                                                             Redeemer, Signature, Tx, TxId, TxIn, TxInType, TxOut,
-                                                             TxOutRef, TxOutType, Validator)
+import           Ledger                                     (Address, Datum, DatumHash, MonetaryPolicy, PubKey,
+                                                             PubKeyHash, Redeemer, Signature, Tx, TxId, TxIn, TxInType,
+                                                             TxOut, TxOutRef, TxOutType, Validator)
 import           Ledger.Ada                                 (Ada)
 import           Ledger.Index                               (ValidationError)
 import           Ledger.Interval                            (Extended, Interval, LowerBound, UpperBound)
@@ -112,6 +112,9 @@ psNonEmpty =
 psJsonEither :: MonadReader BridgeData m => m PSType
 psJsonEither =
     TypeInfo "" "Data.Json.JsonEither" "JsonEither" <$> psTypeParameters
+
+psJsonMap :: MonadReader BridgeData m => m PSType
+psJsonMap = TypeInfo "" "Data.Json.JsonMap" "JsonMap" <$> psTypeParameters
 
 psJsonTuple :: MonadReader BridgeData m => m PSType
 psJsonTuple = TypeInfo "" "Data.Json.JsonTuple" "JsonTuple" <$> psTypeParameters
@@ -185,12 +188,6 @@ mpsHashBridge = do
     typeModule ^== "Ledger.Scripts"
     pure psString
 
-dataHashBridge :: BridgePart
-dataHashBridge = do
-    typeName ^== "DatumHash"
-    typeModule ^== "Ledger.Scripts"
-    pure psString
-
 headersBridge :: BridgePart
 headersBridge = do
     typeModule ^== "Servant.API.ResponseHeaders"
@@ -218,18 +215,16 @@ byteStringBridge = do
     typeModule ^== "Data.ByteString.Lazy.Internal"
     pure psString
 
--- | We represent 'Map' using an 'AssocMap'. It's not ideal, but it's
--- a fair way of representing JSON if your keys don't always have a
--- natural string representation.
 mapBridge :: BridgePart
 mapBridge = do
     typeName ^== "Map"
     typeModule ^== "Data.Map.Internal"
-    psAssocMap
+    psJsonMap
 
 myBridge :: BridgePart
 myBridge =
     eitherBridge <|> tupleBridge <|> defaultBridge <|> integerBridge <|>
+    mapBridge <|>
     assocMapBridge <|>
     aesonBridge <|>
     setBridge <|>
@@ -241,9 +236,7 @@ myBridge =
     nonEmptyBridge <|>
     validatorHashBridge <|>
     mpsHashBridge <|>
-    dataHashBridge <|>
     byteStringBridge <|>
-    mapBridge <|>
     ledgerBytesBridge
 
 data MyBridge
@@ -269,6 +262,7 @@ myTypes =
     , (genericShow <*> (equal <*> mkSumType)) (Proxy @(ContractCall A))
     , (genericShow <*> (equal <*> mkSumType)) (Proxy @SimulatorWallet)
     , (order <*> (genericShow <*> mkSumType)) (Proxy @Datum)
+    , (order <*> (genericShow <*> mkSumType)) (Proxy @DatumHash)
     , (genericShow <*> (order <*> mkSumType)) (Proxy @Validator)
     , (genericShow <*> (order <*> mkSumType)) (Proxy @MonetaryPolicy)
     , (genericShow <*> (order <*> mkSumType)) (Proxy @Redeemer)

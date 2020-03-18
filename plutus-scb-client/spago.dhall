@@ -3,29 +3,23 @@ Welcome to a Spago project!
 You can edit this file as you like.
 -}
 { name =
-    "marlowe-playground-client"
+    "plutus-playground-client"
 , dependencies =
-    [ "bigints"
+    [ "prelude"
+    , "aff"
     , "console"
     , "debug"
     , "effect"
-    , "functions"
     , "halogen"
-    , "matryoshka"
-    , "node-fs"
-    , "numerics"
-    , "string-parsers"
-    , "prelude"
+    , "argonaut-codecs"
+    , "foreign-generic"
     , "psci-support"
+    , "transformers"
     , "remotedata"
     , "servant-support"
-    , "simple-json"
-    , "web-socket"
-    , "coroutines"
-    , "aff-coroutines"
     , "test-unit"
-    , "undefinable"
     , "uuid"
+    , "newtype"
     ]
 , packages =
     ./packages.dhall
@@ -33,6 +27,10 @@ You can edit this file as you like.
     [ "src/**/*.purs"
     , "test/**/*.purs"
     , "generated/**/*.purs"
-    , "../web-common/src/**/*.purs"
+    , "../web-common/src/AjaxUtils.purs"
+    , "../web-common/src/Bootstrap.purs"
+    , "../web-common/src/Icons.purs"
+    , "../web-common/src/Data/**/*.purs"
+    , "../web-common/src/Language/**/*.purs"
     ]
 }
