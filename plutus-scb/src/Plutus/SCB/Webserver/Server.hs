@@ -12,25 +12,32 @@ module Plutus.SCB.Webserver.Server
     ( main
     ) where
 
-import           Control.Monad.Except       (ExceptT (ExceptT))
-import           Control.Monad.IO.Class     (MonadIO, liftIO)
-import           Control.Monad.Logger       (MonadLogger, logInfoN)
-import           Data.Bifunctor             (first)
-import qualified Data.ByteString.Lazy.Char8 as LBS
-import           Data.Proxy                 (Proxy (Proxy))
-import           Eventful                   (streamEventEvent)
-import           Network.Wai.Handler.Warp   (run)
-import           Plutus.SCB.App             (App, runApp)
-import           Plutus.SCB.Arbitrary       ()
-import           Plutus.SCB.Core            (runGlobalQuery)
-import qualified Plutus.SCB.Query           as Query
-import           Plutus.SCB.Types           (Config, WebserverConfig (..), scbWebserverConfig)
-import           Plutus.SCB.Utils           (tshow)
-import           Plutus.SCB.Webserver.API   (API)
+import           Control.Lens                  (view, _1, _2, _3)
+import           Control.Monad.Except          (ExceptT (ExceptT))
+import           Control.Monad.Freer.Extra.Log (logInfo)
+import           Control.Monad.IO.Class        (liftIO)
+import           Data.Bifunctor                (first)
+import qualified Data.ByteString.Lazy.Char8    as LBS
+import           Data.Map                      (Map)
+import qualified Data.Map                      as Map
+import           Data.Proxy                    (Proxy (Proxy))
+import           Eventful                      (streamEventEvent)
+import           Ledger                        (PubKeyHash)
+import           Network.Wai.Handler.Warp      (run)
+import           Plutus.SCB.App                (App, runApp)
+import           Plutus.SCB.Arbitrary          ()
+import           Plutus.SCB.Core               (runGlobalQuery)
+import qualified Plutus.SCB.Query              as Query
+import           Plutus.SCB.Types              (Config, WebserverConfig (..), scbWebserverConfig)
+import           Plutus.SCB.Utils              (tshow)
+import           Plutus.SCB.Webserver.API      (API)
 import           Plutus.SCB.Webserver.Types
-import           Servant                    ((:<|>) ((:<|>)), (:>), Application, Handler (Handler), err500, errBody,
-                                             hoistServer, serve)
-import           Servant.Client             (BaseUrl (baseUrlPort))
+import           Servant                       ((:<|>) ((:<|>)), (:>), Application, Handler (Handler), err500, errBody,
+                                                hoistServer, serve)
+import           Servant.Client                (BaseUrl (baseUrlPort))
+import           Wallet.Emulator.Wallet        (Wallet)
+import qualified Wallet.Rollup                 as Rollup
+import           Wallet.Rollup.Types           (AnnotatedTx)
 
 asHandler :: Config -> App a -> Handler a
 asHandler config action =
@@ -46,8 +53,21 @@ fullReport :: App FullReport
 fullReport = do
     latestContractStatus <- runGlobalQuery Query.latestContractStatus
     events <- fmap streamEventEvent <$> runGlobalQuery Query.pureProjection
-    utxoIndex <- runGlobalQuery Query.utxoIndexProjection
-    pure FullReport {latestContractStatus, events, utxoIndex}
+    transactions <- runGlobalQuery Query.utxoIndexProjection
+    let walletMap :: Map PubKeyHash Wallet = Map.empty -- TODO
+    annotatedBlockchain :: [[AnnotatedTx]] <-
+        Rollup.doAnnotateBlockchain $ view _1 transactions
+    let transactionMap = view _2 transactions
+    let utxoIndex = view _3 transactions
+    pure
+        FullReport
+            { latestContractStatus
+            , events
+            , transactionMap
+            , utxoIndex
+            , annotatedBlockchain
+            , walletMap
+            }
 
 app :: Config -> Application
 app config =
@@ -55,8 +75,8 @@ app config =
   where
     api = Proxy @("api" :> API)
 
-main :: (MonadIO m, MonadLogger m) => Config -> m ()
+main :: Config -> App ()
 main config = do
     let port = baseUrlPort $ baseUrl $ scbWebserverConfig config
-    logInfoN $ "Starting SCB backend server on port: " <> tshow port
+    logInfo $ "Starting SCB backend server on port: " <> tshow port
     liftIO $ run port $ app config

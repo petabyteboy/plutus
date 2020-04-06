@@ -29,8 +29,13 @@ You can edit this file as you like.
     , "generated/**/*.purs"
     , "../web-common/src/AjaxUtils.purs"
     , "../web-common/src/Bootstrap.purs"
-    , "../web-common/src/Icons.purs"
+    , "../web-common/src/Bootstrap/**/*.purs"
+    , "../web-common/src/Control/**/*.purs"
+    , "../web-common/src/Chain/**/*.purs"
     , "../web-common/src/Data/**/*.purs"
+    , "../web-common/src/Icons.purs"
     , "../web-common/src/Language/**/*.purs"
+    , "../web-common/src/Ledger/**/*.purs"
+    , "../web-common/src/MonadAnimate.purs"
     ]
 }

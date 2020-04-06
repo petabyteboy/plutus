@@ -33,6 +33,7 @@ import Gist (Gist, GistId, gistFileContent, gistFiles, gistId)
 import Gists (GistAction(..))
 import Language.Haskell.Interpreter (InterpreterError, InterpreterResult, SourceCode(..))
 import MainFrame (handleAction, mkInitialState)
+import MonadAnimate (class MonadAnimate)
 import MonadApp (class MonadApp)
 import Network.RemoteData (RemoteData(..), isNotAsked, isSuccess)
 import Network.RemoteData as RemoteData
@@ -107,7 +108,6 @@ instance monadAppMockApp :: Monad m => MonadApp (MockApp m) where
   editorHandleAction _ = pure unit
   editorSetAnnotations annotations = pure unit
   --
-  delay time = pure unit
   saveBuffer contents =
     MockApp
       $ assign (_1 <<< _localStorage <<< at (unwrap bufferLocalStorageKey)) (Just contents)
@@ -129,6 +129,9 @@ instance monadAppMockApp :: Monad m => MonadApp (MockApp m) where
       Tuple { compilationResult } _ <- get
       pure compilationResult
   resizeBalancesChart = pure unit
+
+instance monadAnimateMockApp :: Monad m => MonadAnimate (MockApp m) where
+  delay time = pure unit
 
 instance monadRecMockApp :: Monad m => MonadRec (MockApp m) where
   tailRecM step a = do

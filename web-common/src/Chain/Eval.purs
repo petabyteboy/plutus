@@ -5,12 +5,13 @@ import Control.Monad.State.Trans (class MonadState)
 import Data.Lens (_Just, assign, preview, use)
 import Data.Maybe (Maybe, fromMaybe)
 import Data.Newtype (wrap)
+import Data.Time.Duration (Milliseconds)
 import Ledger.TxId (TxId)
-import MonadApp (class MonadApp, delay)
-import Wallet.Rollup.Types (SequenceId(..))
+import MonadAnimate (class MonadAnimate, delay)
 import Prelude (Ordering(..), Unit, bind, compare, discard, pure, ($), (<<<), (<>))
+import Wallet.Rollup.Types (SequenceId(..))
 
-handleAction :: forall m. MonadState State m => MonadApp m => Maybe ChainFocus -> Maybe AnnotatedBlockchain -> m Unit
+handleAction :: forall m. MonadState State m => MonadAnimate m => Maybe ChainFocus -> Maybe AnnotatedBlockchain -> m Unit
 handleAction newFocus mAnnotatedBlockchain = do
   oldFocus <- use _chainFocus
   let
@@ -28,7 +29,7 @@ handleAction newFocus mAnnotatedBlockchain = do
   assign _chainFocusAge relativeAge
   -- Animate.
   assign _chainFocusAppearing true
-  delay $ wrap 10.0
+  delay (wrap 10.0 :: Milliseconds)
   assign _chainFocusAppearing false
   where
   compareSequenceIds (SequenceId old) (SequenceId new) =

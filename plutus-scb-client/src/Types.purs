@@ -1,17 +1,24 @@
 module Types where
 
 import Prelude
+import Chain.Types (ChainFocus)
+import Chain.Types as Chain
 import Data.Generic.Rep (class Generic)
 import Data.Lens (Lens')
 import Data.Lens.Iso.Newtype (_Newtype)
 import Data.Lens.Record (prop)
+import Data.Map (Map)
+import Data.Maybe (Maybe)
 import Data.Newtype (class Newtype)
-import Data.RawJson (RawJson(..))
+import Data.RawJson (RawJson)
 import Data.Symbol (SProxy(..))
+import Ledger.Crypto (PubKeyHash)
 import Network.RemoteData (RemoteData)
 import Plutus.SCB.Types (ActiveContractState, PartiallyDecodedResponse)
-import Plutus.SCB.Webserver.Types (FullReport)
+import Plutus.SCB.Webserver.Types (FullReport, _FullReport)
 import Servant.PureScript.Ajax (AjaxError)
+import Wallet.Emulator.Wallet (Wallet)
+import Wallet.Rollup.Types (AnnotatedTx)
 
 data Query a
 
@@ -21,10 +28,12 @@ type WebData
 data HAction
   = Init
   | LoadFullReport
+  | ChainAction (Maybe ChainFocus)
 
 newtype State
   = State
   { fullReport :: WebData FullReport
+  , chainState :: Chain.State
   }
 
 derive instance newtypeState :: Newtype State _
@@ -33,6 +42,12 @@ derive instance genericState :: Generic State _
 
 _fullReport :: Lens' State (WebData FullReport)
 _fullReport = _Newtype <<< prop (SProxy :: SProxy "fullReport")
+
+_chainState :: Lens' State Chain.State
+_chainState = _Newtype <<< prop (SProxy :: SProxy "chainState")
+
+_annotatedBlockchain :: Lens' FullReport (Array (Array AnnotatedTx))
+_annotatedBlockchain = _FullReport <<< prop (SProxy :: SProxy "annotatedBlockchain")
 
 _partiallyDecodedResponse :: Lens' ActiveContractState PartiallyDecodedResponse
 _partiallyDecodedResponse = _Newtype <<< prop (SProxy :: SProxy "partiallyDecodedResponse")

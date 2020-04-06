@@ -27,19 +27,28 @@ import           Plutus.SCB.Core
 import           Plutus.SCB.Effects.Contract                   (ContractEffect)
 import           Plutus.SCB.Effects.EventLog                   (EventLogEffect)
 import           Plutus.SCB.Events                             (ChainEvent)
+import           Plutus.SCB.Query                              (utxoIndexProjection)
 import           Plutus.SCB.TestApp                            (runScenario, sync, valueAt)
+import           Plutus.SCB.TestApp                            (TestApp, runScenario, sync, valueAt)
 import           Plutus.SCB.Types                              (SCBError)
 import           Test.QuickCheck.Instances.UUID                ()
+import           Test.QuickCheck.Instances.UUID                ()
+import           Test.Tasty                                    (TestTree, testGroup)
 import           Test.Tasty                                    (TestTree, testGroup)
 import           Test.Tasty.HUnit                              (HasCallStack, assertEqual, testCase)
+import           Test.Tasty.HUnit                              (HasCallStack, assertBool, assertEqual, testCase)
 import           Wallet.API                                    (ChainIndexEffect, NodeClientEffect,
                                                                 SigningProcessEffect, WalletAPIError, WalletEffect,
                                                                 ownPubKey)
+import           Wallet.API                                    (ownPubKey)
 import           Wallet.Effects                                (WalletEffects)
 import qualified Wallet.Emulator.Chain                         as Chain
 import           Wallet.Emulator.ChainIndex                    (ChainIndexControlEffect)
 import           Wallet.Emulator.NodeClient                    (NodeControlEffect)
 import           Wallet.Emulator.SigningProcess                (SigningProcessControlEffect)
+import           Wallet.Rollup                                 (doAnnotateBlockchain)
+import           Wallet.Rollup.Types                           (DereferencedInput (DereferencedInput, InputNotFound),
+                                                                dereferencedInputs, isFound)
 
 tests :: TestTree
 tests = testGroup "SCB.Core" [installContractTests, executionTests]
@@ -136,6 +145,18 @@ executionTests =
                       "The wallet should now have its money back."
                       (lovelaceValueOf openingBalance)
                       balance2
+              index <-
+                  streamProjectionState <$>
+                  refreshProjection (globalStreamProjection utxoIndexProjection)
+              liftIO $ do
+                  annotatedBlockchain <- doAnnotateBlockchain $ view _1 index
+                  let allDereferencedInputs :: [DereferencedInput]
+                      allDereferencedInputs =
+                          mconcat $
+                          dereferencedInputs <$> mconcat annotatedBlockchain
+                  assertBool
+                      "Full TX history can be annotated."
+                      (all isFound allDereferencedInputs)
         ]
 
 assertTxCount ::

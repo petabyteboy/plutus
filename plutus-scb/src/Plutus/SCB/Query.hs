@@ -111,19 +111,19 @@ utxoAt (txById, UtxoIndex utxoIndex) address =
      in UtxoAtAddress {address, utxo}
 
 utxoIndexProjection ::
-       Projection (Map TxId Tx, UtxoIndex) (StreamEvent key position ChainEvent)
+       Projection ([[Tx]], Map TxId Tx, UtxoIndex) (StreamEvent key position ChainEvent)
 utxoIndexProjection =
     Projection
-        { projectionSeed = (Map.empty, UtxoIndex Map.empty)
+        { projectionSeed = ([], Map.empty, UtxoIndex Map.empty)
         , projectionEventHandler
         }
   where
-    projectionEventHandler (oldTxById, oldUtxoIndex) (StreamEvent _ _ (NodeEvent (BlockAdded txs))) =
-        let newUtxoIndex = UtxoIndex.insertBlock txs oldUtxoIndex
-            unprunedTxById =
+    projectionEventHandler (oldBlockchain, oldTxById, oldUtxoIndex) (StreamEvent _ _ (NodeEvent (BlockAdded txs))) =
+        let unprunedTxById =
                 foldl (\m tx -> Map.insert (txId tx) tx m) oldTxById txs
             newTxById = id unprunedTxById -- TODO Prune spent keys.
-         in (newTxById, newUtxoIndex)
+            newUtxoIndex = UtxoIndex.insertBlock txs oldUtxoIndex
+         in (txs : oldBlockchain, newTxById, newUtxoIndex)
     projectionEventHandler m _ = m
 
 blockCount :: Projection (Sum Integer) (StreamEvent key position ChainEvent)

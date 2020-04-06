@@ -299,7 +299,8 @@ runCliCommand _ (ReportContractHistory uuid) = do
         (\index contract ->
              logInfo $ render (parens (pretty index) <+> pretty contract)) =<<
         Core.activeContractHistory uuid
-runCliCommand _ PSGenerator {_outputDir} = liftIO $ PSGenerator.generate _outputDir
+runCliCommand _ PSGenerator {_outputDir} =
+    liftIO $ PSGenerator.generate _outputDir
 
 main :: IO ()
 main = do

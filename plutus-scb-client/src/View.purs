@@ -1,24 +1,27 @@
 module View (render) where
 
-import Data.Tuple.Nested
 import AjaxUtils (ajaxErrorPane)
-import Bootstrap (cardBody_, cardHeader_, card_, col12_, col3_, col9_, container_, nbsp, row_)
+import Bootstrap (cardBody_, cardHeader_, card_, col10_, col12_, col3_, col8_, col9_, container_, nbsp, row_)
+import Chain.Types (AnnotatedBlockchain(..), ChainFocus)
+import Chain.Types as Chain
+import Chain.View (chainView)
 import Data.Array as Array
 import Data.Json.JsonMap (JsonMap, _JsonMap)
-import Data.Json.JsonTuple (_JsonTuple)
 import Data.Json.JsonUUID (JsonUUID, _JsonUUID)
-import Data.Lens (_1, _2, to, traversed, view)
+import Data.Lens (to, traversed, view)
 import Data.Lens.Extra (toArrayOf)
 import Data.Map as Map
 import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.RawJson (_RawJson)
 import Data.Tuple (Tuple(..))
+import Data.Tuple.Nested (type (/\), (/\))
 import Data.UUID as UUID
 import Effect.Aff.Class (class MonadAff)
-import Halogen.HTML (ClassName(..), ComponentHTML, HTML, b_, code_, div, div_, h3_, pre_, span_, text)
+import Halogen.HTML (ClassName(..), ComponentHTML, HTML, b_, code_, div, div_, h2_, h3_, pre_, span_, text)
 import Halogen.HTML.Properties (class_)
 import Icons (Icon(..), icon)
+import Ledger.Crypto (PubKeyHash)
 import Ledger.Index (UtxoIndex)
 import Ledger.Tx (Tx)
 import Ledger.TxId (TxId)
@@ -31,38 +34,43 @@ import Plutus.SCB.Events.Wallet (WalletEvent)
 import Plutus.SCB.Types (ActiveContract(..), ActiveContractState(..), Contract(..))
 import Plutus.SCB.Webserver.Types (FullReport(..))
 import Prelude (class Eq, class Show, otherwise, show, ($), (+), (<$>), (<<<), (<>), (==))
-import Types (HAction, State(State), _hooks, _partiallyDecodedResponse)
+import Types (HAction(..), State(State), _hooks, _partiallyDecodedResponse)
+import Wallet.Emulator.Wallet (Wallet)
+import Wallet.Rollup.Types (AnnotatedTx)
 
 render ::
   forall m slots.
   MonadAff m =>
   State -> ComponentHTML HAction slots m
-render (State { fullReport }) =
+render (State { chainState, fullReport }) =
   div
     [ class_ $ ClassName "main-frame" ]
     [ container_
         [ div_
             $ case fullReport of
-                Success report -> [ fullReportPane report ]
+                Success report -> [ fullReportPane chainState report ]
                 Failure error -> [ ajaxErrorPane error ]
                 Loading -> [ icon Spinner ]
                 NotAsked -> [ icon Spinner ]
         ]
     ]
 
-fullReportPane :: forall p i. FullReport -> HTML p i
-fullReportPane fullReport@(FullReport { events, latestContractStatus, utxoIndex }) =
+fullReportPane :: forall p. Chain.State -> FullReport -> HTML p HAction
+fullReportPane chainState fullReport@(FullReport { events, latestContractStatus, transactionMap, utxoIndex, annotatedBlockchain, walletMap }) =
   row_
-    [ col9_ [ contractStatusPane latestContractStatus ]
+    [ col10_ [ contractStatusPane latestContractStatus ]
+    , col12_ [ ChainAction <<< Just <$> annotatedBlockchainPane chainState walletMap annotatedBlockchain ]
     , col12_ [ eventsPane events ]
-    , col9_ [ transactionPane (view (_JsonTuple <<< _1) utxoIndex) ]
-    , col9_ [ utxoIndexPane (view (_JsonTuple <<< _2) utxoIndex) ]
+    , col8_ [ transactionPane transactionMap ]
+    , col8_ [ utxoIndexPane utxoIndex ]
     ]
 
 contractStatusPane :: forall p i. JsonMap JsonUUID ActiveContractState -> HTML p i
 contractStatusPane latestContractStatus =
   card_
-    [ cardHeader_ [ text "Latest Contract Statuses" ]
+    [ cardHeader_
+        [ h2_ [ text "Active Contracts" ]
+        ]
     , cardBody_
         [ div_
             ( ( \(Tuple k v) ->
@@ -76,12 +84,25 @@ contractStatusPane latestContractStatus =
         ]
     ]
 
+annotatedBlockchainPane :: forall p. Chain.State -> JsonMap PubKeyHash Wallet -> Array (Array AnnotatedTx) -> HTML p ChainFocus
+annotatedBlockchainPane chainState walletMap chain =
+  card_
+    [ cardHeader_
+        [ h2_ [ text "Blockchain" ]
+        ]
+    , cardBody_
+        [ chainView chainState (unwrap walletMap) $ AnnotatedBlockchain chain
+        ]
+    ]
+
 transactionPane ::
   forall p i.
   JsonMap TxId Tx -> HTML p i
 transactionPane txMap =
   card_
-    [ cardHeader_ [ text "Txs" ]
+    [ cardHeader_
+        [ h2_ [ text "Txs" ]
+        ]
     , cardBody_
         ( toArrayOf
             ( _JsonMap
@@ -95,7 +116,9 @@ transactionPane txMap =
 utxoIndexPane :: forall p i. UtxoIndex -> HTML p i
 utxoIndexPane utxoIndex =
   card_
-    [ cardHeader_ [ text "UtxoIndex" ]
+    [ cardHeader_
+        [ h2_ [ text "UtxoIndex" ]
+        ]
     , cardBody_ [ div_ [ code_ [ text $ show utxoIndex ] ] ]
     ]
 
@@ -103,7 +126,8 @@ eventsPane :: forall p i. Array ChainEvent -> HTML p i
 eventsPane events =
   card_
     [ cardHeader_
-        [ text (show (Array.length events))
+        [ h2_ [ text "Event log" ]
+        , text (show (Array.length events))
         , nbsp
         , text "Event(s)"
         ]

@@ -15,8 +15,8 @@ import Data.Json.JsonEither (JsonEither)
 import Data.Maybe (Maybe)
 import Data.MediaType (MediaType)
 import Data.Newtype (class Newtype, unwrap, wrap)
+import Data.Time.Duration (fromDuration)
 import Editor as Editor
-import Effect.Aff (Milliseconds)
 import Effect.Aff as Aff
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (class MonadEffect, liftEffect)
@@ -26,6 +26,7 @@ import Halogen (HalogenM)
 import Halogen as H
 import Halogen.Chartist as Chartist
 import Language.Haskell.Interpreter (InterpreterError, SourceCode(SourceCode), InterpreterResult)
+import MonadAnimate (class MonadAnimate)
 import Network.RemoteData as RemoteData
 import Playground.Server (SPParams_)
 import Playground.Server as Server
@@ -50,8 +51,6 @@ class
   setDropEffect :: DropEffect -> DragEvent -> m Unit
   setDataTransferData :: DragEvent -> MediaType -> String -> m Unit
   readFileFromDragEvent :: DragEvent -> m String
-  --
-  delay :: Milliseconds -> m Unit
   --
   getOauthStatus :: m (WebData AuthStatus)
   getGistByGistId :: GistId -> m (WebData Gist)
@@ -85,6 +84,9 @@ derive newtype instance monadAskHalogenApp :: MonadAsk env m => MonadAsk env (Ha
 instance monadThrowHalogenApp :: MonadThrow e m => MonadThrow e (HalogenApp m) where
   throwError e = lift (throwError e)
 
+instance monadAnimateHalogenApp :: MonadAff m => MonadAnimate (HalogenApp m) where
+  delay time = wrap $ liftAff $ Aff.delay $ fromDuration time
+
 ------------------------------------------------------------
 runHalogenApp :: forall m a. HalogenApp m a -> HalogenM State HAction ChildSlots Void m a
 runHalogenApp = unwrap
@@ -108,7 +110,6 @@ instance monadAppHalogenApp ::
   setDropEffect dropEffect event = wrap $ liftEffect $ DataTransfer.setDropEffect dropEffect $ dataTransfer event
   setDataTransferData event mimeType value = wrap $ liftEffect $ DataTransfer.setData mimeType value $ dataTransfer event
   readFileFromDragEvent event = wrap $ liftAff $ FileEvents.readFileFromDragEvent event
-  delay ms = wrap $ liftAff $ Aff.delay ms
   saveBuffer text = wrap $ Editor.saveBuffer bufferLocalStorageKey text
   getOauthStatus = runAjax Server.getOauthStatus
   getGistByGistId gistId = runAjax $ Server.getGistsByGistId gistId
@@ -136,7 +137,6 @@ instance monadAppState :: MonadApp m => MonadApp (StateT s m) where
   setDropEffect dropEffect event = lift $ setDropEffect dropEffect event
   setDataTransferData event mimeType value = lift $ setDataTransferData event mimeType value
   readFileFromDragEvent event = lift $ readFileFromDragEvent event
-  delay ms = lift $ delay ms
   saveBuffer text = lift $ saveBuffer text
   getOauthStatus = lift getOauthStatus
   getGistByGistId gistId = lift $ getGistByGistId gistId

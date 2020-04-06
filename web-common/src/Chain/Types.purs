@@ -51,6 +51,13 @@ type State
     , chainFocusAge :: Ordering
     }
 
+initialState :: State
+initialState =
+  { chainFocus: Nothing
+  , chainFocusAppearing: false
+  , chainFocusAge: EQ
+  }
+
 _chainFocus :: forall r a. Lens' { chainFocus :: a | r } a
 _chainFocus = prop (SProxy :: SProxy "chainFocus")
 
@@ -66,8 +73,8 @@ _sequenceId = _Newtype <<< prop (SProxy :: SProxy "sequenceId")
 _dereferencedInputs :: Lens' AnnotatedTx (Array DereferencedInput)
 _dereferencedInputs = _Newtype <<< prop (SProxy :: SProxy "dereferencedInputs")
 
-_originalInput :: Lens' DereferencedInput TxIn
-_originalInput = _Newtype <<< prop (SProxy :: SProxy "originalInput")
+_value :: forall s a r. Newtype s { getValue :: a | r } => Lens' s a
+_value = _Newtype <<< prop (SProxy :: SProxy "getValue")
 
 _txIdOf :: Lens' AnnotatedTx TxId
 _txIdOf = _Newtype <<< prop (SProxy :: SProxy "txId")
