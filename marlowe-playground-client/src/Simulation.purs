@@ -33,11 +33,11 @@ import Marlowe.Monaco as MM
 import Marlowe.Semantics (AccountId(..), Bound(..), ChoiceId(..), Input(..), Party, PubKey, Token, TransactionError, inBounds)
 import Monaco as Monaco
 import Network.RemoteData (RemoteData(..))
+import Prelude (class Show, bind, const, discard, mempty, show, unit, ($), (<$>), (<<<), (<>), (>))
 import Servant.PureScript.Ajax (AjaxError)
 import Simulation.BottomPanel (isContractValid)
 import StaticData as StaticData
 import Types (ActionInput(..), ActionInputId, ChildSlots, FrontendState, HAction(..), HelpContext(..), _Head, _authStatus, _createGistResult, _helpContext, _loadGistResult, _marloweEditorSlot, _marloweState, _pendingInputs, _possibleActions, _showRightPanel, _slot)
-import Prelude (class Show, bind, const, discard, mempty, show, unit, ($), (<$>), (<<<), (<>), (>))
 
 render ::
   forall m.
@@ -45,15 +45,7 @@ render ::
   FrontendState ->
   Array (ComponentHTML HAction ChildSlots m)
 render state =
-  [ section [ classes [ panelHeader, aHorizontal ] ]
-      [ div [ classes [ panelHeaderMain, aHorizontal, noMargins, accentBorderBottom ] ]
-          [ h4 [] [ text "Marlowe Contract" ] ]
-      , div [ classes [ panelHeaderSide, aHorizontal, accentBorderBottom ] ]
-          [ div [ classes ([ ClassName "vertical", ClassName "flip-container" ] <> githubDisplay state) ]
-              [ authButton state ]
-          ]
-      ]
-  , section [ classes [ panelSubHeader, aHorizontal ] ]
+  [ section [ classes [ panelSubHeader, aHorizontal ] ]
       [ div [ classes [ panelSubHeaderMain, aHorizontal ] ]
           [ div [ classes [ ClassName "demo-title", aHorizontal, jFlexStart ] ]
               [ div [ classes [ ClassName "demos", spaceLeft ] ]
@@ -64,14 +56,16 @@ render state =
               (demoScriptLink <$> Array.fromFoldable (map fst StaticData.marloweContracts))
           , div [ class_ (ClassName "code-to-blockly-wrap") ]
               [ button
-                  [ class_ smallBtn
+                  [ classes [ smallBtn, ClassName "tooltip" ]
                   , onClick $ const $ Just $ SetBlocklyCode
                   , enabled (isContractValid state)
                   ]
-                  [ img [ class_ (ClassName "blockly-btn-icon"), src blocklyIcon, alt "blockly logo" ] ]
+                  [ span [ class_ (ClassName "tooltiptext") ] [ text "Send Contract to Blockly" ]
+                  , img [ class_ (ClassName "blockly-btn-icon"), src blocklyIcon, alt "blockly logo" ]
+                  ]
               ]
           ]
-      , div [ classes [ panelSubHeaderSide ] ] []
+      , div [ classes [ panelSubHeaderSide ] ] [ authButton state ]
       ]
   , section [ class_ (ClassName "code-panel") ]
       [ div [ classes (codeEditor state) ]
@@ -121,7 +115,7 @@ sidebar state =
           , a [ onClick $ const $ Just $ ChangeHelpContext InputComposerHelp ] [ img [ src infoIcon, alt "info book icon" ] ]
           ]
       , inputComposer state
-      , div [ class_ aHorizontal ]
+      , div [ classes [ aHorizontal, ClassName "transaction-composer" ] ]
           [ h6 [ classes [ ClassName "input-composer-heading", noMargins ] ]
               [ small [ classes [ textSecondaryColor, bold, uppercase ] ] [ text "Transaction Composer" ] ]
           , a [ onClick $ const $ Just $ ChangeHelpContext TransactionComposerHelp ] [ img [ src infoIcon, alt "info book icon" ] ]
@@ -275,7 +269,11 @@ transactionComposer ::
 transactionComposer state =
   div [ classes [ ClassName "transaction-composer", ClassName "composer" ] ]
     [ ul [ class_ (ClassName "participants") ]
-        [ transaction state isEnabled ]
+        ( if (Array.null pendingInputs) then
+            [ text "Empty transaction" ]
+          else
+            [ transaction state isEnabled ]
+        )
     , div [ class_ (ClassName "transaction-btns") ]
         [ ul [ classes [ ClassName "demo-list", aHorizontal ] ]
             [ li [ classes [ activeTextPrimary, bold, pointer ] ]
@@ -326,6 +324,8 @@ transactionComposer state =
   currentBlock = state ^. (_marloweState <<< _Head <<< _slot)
 
   isEnabled = isContractValid state
+
+  pendingInputs = state ^. (_marloweState <<< _Head <<< _pendingInputs)
 
 transaction ::
   forall p.
