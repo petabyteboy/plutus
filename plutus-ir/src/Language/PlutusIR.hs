@@ -23,6 +23,7 @@ module Language.PlutusIR (
     Binding (..),
     bindingSubterms,
     bindingSubtypes,
+    bindingIds,
     Term (..),
     termSubterms,
     termSubtypes,
@@ -36,6 +37,7 @@ import           Language.PlutusCore        (Kind, Name, TyName, Type (..), type
 import qualified Language.PlutusCore        as PLC
 import           Language.PlutusCore.CBOR   ()
 import           Language.PlutusCore.MkPlc  (Def (..), TermLike (..), TyVarDecl (..), VarDecl (..))
+import qualified Language.PlutusCore.Name   as PLC
 import qualified Language.PlutusCore.Pretty as PLC
 
 import           Control.Lens               hiding (Strict)
@@ -43,6 +45,7 @@ import           Control.Lens               hiding (Strict)
 import           Codec.Serialise            (Serialise)
 
 import qualified Data.Text                  as T
+
 
 -- Datatypes
 
@@ -75,8 +78,22 @@ datatypeNameString (Datatype _ tn _ _ _) = tyVarDeclNameString tn
 
 -- Bindings
 
+-- | Each multi-let-group has to be marked with its scoping:
+-- * 'NonRec': the identifiers introduced by this multi-let are only linearly-scoped, i.e. an identifer cannot refer to itself or later-introduced identifiers of the group.
+-- * 'Rec': an identifiers introduced by this multi-let group can use all other multi-lets  of the same group (including itself),
+-- thus permitting (mutual) recursion.
 data Recursivity = NonRec | Rec
-    deriving (Show, Eq, Generic)
+    deriving (Show, Eq, Generic, Ord)
+
+-- | Recursivity can form a 'Semigroup' / lattice, where 'NonRec' < 'Rec'.
+instance Semigroup Recursivity where
+  NonRec <> x = x
+  Rec <> _ = Rec
+
+-- | 'NonRec' is the identity element of 'Recursivity'.
+instance Monoid Recursivity where
+  -- TODO: We can remove  this instance if we refactor LetFloat to use the non-empty 'AMN.vertexList1' instead of the 'AMN.vertexSet'.
+  mempty = NonRec
 
 instance Serialise Recursivity
 
@@ -122,6 +139,19 @@ bindingSubtypes f = \case
     TermBind x s d t -> TermBind x s <$> varDeclSubtypes f d <*> pure t
     DatatypeBind x d -> DatatypeBind x <$> datatypeSubtypes f d
     TypeBind a d ty -> TypeBind a d <$> f ty
+
+-- | All the identifiers/names introduced by this bining
+-- In case of a datatype-binding it has multiple identifiers: the type, constructors, match function
+bindingIds :: (PLC.HasUnique (tyname a) PLC.TypeUnique, PLC.HasUnique (name a) PLC.TermUnique) => Binding tyname name uni a -> [PLC.Unique]
+bindingIds = \case
+  TermBind _ _ (VarDecl _ n _) _ -> [n^.PLC.theUnique]
+  TypeBind _ (TyVarDecl _ n _) _ -> [n^.PLC.theUnique]
+  DatatypeBind _ (Datatype _ tvdecl tvdecls n vdecls) ->
+    (n^.PLC.theUnique)
+    : fmap (\(TyVarDecl _ tn _) -> tn^.PLC.theUnique) (tvdecl:tvdecls)
+    ++ fmap (\(VarDecl _ vn _)-> vn^.PLC.theUnique) vdecls
+
+
 
 -- Terms
 
